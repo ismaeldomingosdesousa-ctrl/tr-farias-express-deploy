@@ -255,7 +255,7 @@ export const driverAppRouter = router({
 
       await db.insert(driverCredentials)
         .values({ driverId: input.driverId, pin: input.pin, isActive: true })
-        .onDuplicateKeyUpdate({ set: { pin: input.pin, isActive: true } });
+        .onConflictDoUpdate({ target: driverCredentials.driverId, set: { pin: input.pin, isActive: true } });
 
       return { ok: true };
     }),

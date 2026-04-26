@@ -3,7 +3,7 @@ import Stripe from "stripe";
 import { ENV } from "../_core/env";
 import { updateFinancialTransaction } from "../db";
 
-const stripe = new Stripe(ENV.stripeSecretKey || "", { apiVersion: "2025-03-31.basil" as any });
+const getStripe = () => new Stripe(ENV.stripeSecretKey || "sk_placeholder", { apiVersion: "2025-03-31.basil" as any });
 
 export function registerStripeWebhook(app: express.Express) {
   // MUST be registered BEFORE express.json() middleware
@@ -12,7 +12,7 @@ export function registerStripeWebhook(app: express.Express) {
     let event: Stripe.Event;
 
     try {
-      event = stripe.webhooks.constructEvent(req.body, sig, ENV.stripeWebhookSecret || "");
+      event = getStripe().webhooks.constructEvent(req.body, sig, ENV.stripeWebhookSecret || "");
     } catch (err: any) {
       console.error("[Stripe Webhook] Signature verification failed:", err.message);
       return res.status(400).send(`Webhook Error: ${err.message}`);

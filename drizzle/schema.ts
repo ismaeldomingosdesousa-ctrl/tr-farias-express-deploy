@@ -1,439 +1,437 @@
 import {
-  int,
-  mysqlEnum,
-  mysqlTable,
+  integer,
+  sqliteTable,
   text,
-  timestamp,
-  varchar,
-  float,
-  boolean,
-  bigint,
-  json,
-} from "drizzle-orm/mysql-core";
+  real,
+} from "drizzle-orm/sqlite-core";
 
 // ─── USERS ───────────────────────────────────────────────
-export const users = mysqlTable("users", {
-  id: int("id").autoincrement().primaryKey(),
-  openId: varchar("openId", { length: 64 }).notNull().unique(),
+export const users = sqliteTable("users", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  openId: text("openId").notNull().unique(),
   name: text("name"),
-  email: varchar("email", { length: 320 }),
-  loginMethod: varchar("loginMethod", { length: 64 }),
-  role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-  lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
+  email: text("email"),
+  loginMethod: text("loginMethod"),
+  role: text("role").$type<"user" | "admin">().default("user").notNull(),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()).$onUpdateFn(() => new Date()),
+  lastSignedIn: integer("lastSignedIn", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
 // ─── CLIENTES (Embarcadores) ─────────────────────────────
-export const clients = mysqlTable("clients", {
-  id: int("id").autoincrement().primaryKey(),
-  name: varchar("name", { length: 255 }).notNull(),
-  cnpj: varchar("cnpj", { length: 18 }).notNull(),
-  email: varchar("email", { length: 320 }),
-  phone: varchar("phone", { length: 20 }),
+export const clients = sqliteTable("clients", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  cnpj: text("cnpj").notNull(),
+  email: text("email"),
+  phone: text("phone"),
   address: text("address"),
-  city: varchar("city", { length: 100 }),
-  state: varchar("state", { length: 2 }),
-  zipCode: varchar("zipCode", { length: 10 }),
-  contactPerson: varchar("contactPerson", { length: 255 }),
-  status: mysqlEnum("status", ["active", "inactive"]).default("active").notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  city: text("city"),
+  state: text("state"),
+  zipCode: text("zipCode"),
+  contactPerson: text("contactPerson"),
+  status: text("status").$type<"active" | "inactive">().default("active").notNull(),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()).$onUpdateFn(() => new Date()),
 });
 
 export type Client = typeof clients.$inferSelect;
 export type InsertClient = typeof clients.$inferInsert;
 
 // ─── MOTORISTAS ──────────────────────────────────────────
-export const drivers = mysqlTable("drivers", {
-  id: int("id").autoincrement().primaryKey(),
-  name: varchar("name", { length: 255 }).notNull(),
-  cpf: varchar("cpf", { length: 14 }).notNull(),
-  cnh: varchar("cnh", { length: 20 }).notNull(),
-  cnhCategory: varchar("cnhCategory", { length: 5 }),
-  cnhExpiry: timestamp("cnhExpiry"),
-  phone: varchar("phone", { length: 20 }),
-  email: varchar("email", { length: 320 }),
+export const drivers = sqliteTable("drivers", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  cpf: text("cpf").notNull(),
+  cnh: text("cnh").notNull(),
+  cnhCategory: text("cnhCategory"),
+  cnhExpiry: integer("cnhExpiry", { mode: "timestamp" }),
+  phone: text("phone"),
+  email: text("email"),
   address: text("address"),
-  city: varchar("city", { length: 100 }),
-  state: varchar("state", { length: 2 }),
-  status: mysqlEnum("status", ["available", "on_trip", "inactive", "suspended"]).default("available").notNull(),
-  rating: float("rating").default(5.0),
-  totalTrips: int("totalTrips").default(0),
-  lat: float("lat"),
-  lng: float("lng"),
-  lastLocationUpdate: timestamp("lastLocationUpdate"),
+  city: text("city"),
+  state: text("state"),
+  status: text("status").$type<"available" | "on_trip" | "inactive" | "suspended">().default("available").notNull(),
+  rating: real("rating").default(5.0),
+  totalTrips: integer("totalTrips").default(0),
+  lat: real("lat"),
+  lng: real("lng"),
+  lastLocationUpdate: integer("lastLocationUpdate", { mode: "timestamp" }),
   cnhDocUrl: text("cnhDocUrl"),
   crlvDocUrl: text("crlvDocUrl"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()).$onUpdateFn(() => new Date()),
 });
 
 export type Driver = typeof drivers.$inferSelect;
 export type InsertDriver = typeof drivers.$inferInsert;
 
 // ─── VEÍCULOS ────────────────────────────────────────────
-export const vehicles = mysqlTable("vehicles", {
-  id: int("id").autoincrement().primaryKey(),
-  plate: varchar("plate", { length: 10 }).notNull(),
-  type: mysqlEnum("type", ["vuc", "toco", "truck", "carreta", "bitrem", "van", "utilitario"]).notNull(),
-  brand: varchar("brand", { length: 100 }),
-  model: varchar("model", { length: 100 }),
-  year: int("year"),
-  capacityKg: float("capacityKg"),
-  capacityM3: float("capacityM3"),
-  driverId: int("driverId"),
-  status: mysqlEnum("status", ["available", "in_use", "maintenance", "inactive"]).default("available").notNull(),
-  lat: float("lat"),
-  lng: float("lng"),
-  lastLocationUpdate: timestamp("lastLocationUpdate"),
-  fuelType: varchar("fuelType", { length: 20 }),
-  kmCurrent: float("kmCurrent"),
-  nextMaintenanceKm: float("nextMaintenanceKm"),
-  crlvExpiry: timestamp("crlvExpiry"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+export const vehicles = sqliteTable("vehicles", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  plate: text("plate").notNull(),
+  type: text("type").$type<"vuc" | "toco" | "truck" | "carreta" | "bitrem" | "van" | "utilitario">().notNull(),
+  brand: text("brand"),
+  model: text("model"),
+  year: integer("year"),
+  capacityKg: real("capacityKg"),
+  capacityM3: real("capacityM3"),
+  driverId: integer("driverId"),
+  status: text("status").$type<"available" | "in_use" | "maintenance" | "inactive">().default("available").notNull(),
+  lat: real("lat"),
+  lng: real("lng"),
+  lastLocationUpdate: integer("lastLocationUpdate", { mode: "timestamp" }),
+  fuelType: text("fuelType"),
+  kmCurrent: real("kmCurrent"),
+  nextMaintenanceKm: real("nextMaintenanceKm"),
+  crlvExpiry: integer("crlvExpiry", { mode: "timestamp" }),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()).$onUpdateFn(() => new Date()),
 });
 
 export type Vehicle = typeof vehicles.$inferSelect;
 export type InsertVehicle = typeof vehicles.$inferInsert;
 
 // ─── ARMAZÉNS ────────────────────────────────────────────
-export const warehouses = mysqlTable("warehouses", {
-  id: int("id").autoincrement().primaryKey(),
-  name: varchar("name", { length: 255 }).notNull(),
-  code: varchar("code", { length: 20 }).notNull(),
+export const warehouses = sqliteTable("warehouses", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  code: text("code").notNull().unique(),
   address: text("address"),
-  city: varchar("city", { length: 100 }),
-  state: varchar("state", { length: 2 }),
-  zipCode: varchar("zipCode", { length: 10 }),
-  lat: float("lat"),
-  lng: float("lng"),
-  totalCapacityM3: float("totalCapacityM3"),
-  usedCapacityM3: float("usedCapacityM3").default(0),
-  status: mysqlEnum("status", ["active", "inactive"]).default("active").notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  city: text("city"),
+  state: text("state"),
+  zipCode: text("zipCode"),
+  lat: real("lat"),
+  lng: real("lng"),
+  capacity: real("capacity"),
+  usedCapacity: real("usedCapacity").default(0),
+  managerId: integer("managerId"),
+  status: text("status").$type<"active" | "inactive" | "maintenance">().default("active").notNull(),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()).$onUpdateFn(() => new Date()),
 });
 
 export type Warehouse = typeof warehouses.$inferSelect;
 export type InsertWarehouse = typeof warehouses.$inferInsert;
 
 // ─── ESTOQUE ─────────────────────────────────────────────
-export const inventory = mysqlTable("inventory", {
-  id: int("id").autoincrement().primaryKey(),
-  sku: varchar("sku", { length: 50 }).notNull(),
-  productName: varchar("productName", { length: 255 }).notNull(),
-  warehouseId: int("warehouseId").notNull(),
-  location: varchar("location", { length: 50 }),
-  availableQty: int("availableQty").default(0).notNull(),
-  reservedQty: int("reservedQty").default(0).notNull(),
-  minQty: int("minQty").default(0),
-  weightKg: float("weightKg"),
-  volumeM3: float("volumeM3"),
-  unitPrice: float("unitPrice"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+export const inventory = sqliteTable("inventory", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  warehouseId: integer("warehouseId").notNull(),
+  sku: text("sku").notNull(),
+  productName: text("productName").notNull(),
+  description: text("description"),
+  category: text("category"),
+  quantity: integer("quantity").notNull().default(0),
+  minQuantity: integer("minQuantity").default(0),
+  maxQuantity: integer("maxQuantity"),
+  unit: text("unit"),
+  weightKg: real("weightKg"),
+  volumeM3: real("volumeM3"),
+  location: text("location"),
+  status: text("status").$type<"active" | "inactive" | "reserved">().default("active").notNull(),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()).$onUpdateFn(() => new Date()),
 });
 
 export type Inventory = typeof inventory.$inferSelect;
 export type InsertInventory = typeof inventory.$inferInsert;
 
 // ─── MOVIMENTAÇÕES DE ESTOQUE ────────────────────────────
-export const inventoryMovements = mysqlTable("inventory_movements", {
-  id: int("id").autoincrement().primaryKey(),
-  inventoryId: int("inventoryId").notNull(),
-  warehouseId: int("warehouseId").notNull(),
-  type: mysqlEnum("type", ["inbound", "outbound", "transfer", "adjustment", "picking", "packing"]).notNull(),
-  quantity: int("quantity").notNull(),
-  reference: varchar("reference", { length: 100 }),
+export const inventoryMovements = sqliteTable("inventory_movements", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  inventoryId: integer("inventoryId").notNull(),
+  warehouseId: integer("warehouseId").notNull(),
+  type: text("type").$type<"inbound" | "outbound" | "transfer" | "adjustment" | "picking" | "packing">().notNull(),
+  quantity: integer("quantity").notNull(),
+  reference: text("reference"),
   notes: text("notes"),
-  userId: int("userId"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  userId: integer("userId"),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
 
 export type InventoryMovement = typeof inventoryMovements.$inferSelect;
 export type InsertInventoryMovement = typeof inventoryMovements.$inferInsert;
 
 // ─── PEDIDOS (OMS) ───────────────────────────────────────
-export const orders = mysqlTable("orders", {
-  id: int("id").autoincrement().primaryKey(),
-  orderNumber: varchar("orderNumber", { length: 30 }).notNull().unique(),
-  clientId: int("clientId").notNull(),
-  status: mysqlEnum("status", [
-    "pending", "confirmed", "picking", "packed", "awaiting_pickup",
-    "in_transit", "delivered", "cancelled", "returned"
-  ]).default("pending").notNull(),
-  priority: mysqlEnum("priority", ["low", "normal", "high", "urgent"]).default("normal").notNull(),
+export const orders = sqliteTable("orders", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  orderNumber: text("orderNumber").notNull().unique(),
+  clientId: integer("clientId").notNull(),
+  status: text("status").$type<
+    "pending" | "confirmed" | "picking" | "packed" | "awaiting_pickup" |
+    "in_transit" | "delivered" | "cancelled" | "returned"
+  >().default("pending").notNull(),
+  priority: text("priority").$type<"low" | "normal" | "high" | "urgent">().default("normal").notNull(),
   originAddress: text("originAddress"),
-  originCity: varchar("originCity", { length: 100 }),
-  originState: varchar("originState", { length: 2 }),
-  originZip: varchar("originZip", { length: 10 }),
-  originLat: float("originLat"),
-  originLng: float("originLng"),
+  originCity: text("originCity"),
+  originState: text("originState"),
+  originZip: text("originZip"),
+  originLat: real("originLat"),
+  originLng: real("originLng"),
   destAddress: text("destAddress"),
-  destCity: varchar("destCity", { length: 100 }),
-  destState: varchar("destState", { length: 2 }),
-  destZip: varchar("destZip", { length: 10 }),
-  destLat: float("destLat"),
-  destLng: float("destLng"),
-  totalWeight: float("totalWeight"),
-  totalVolume: float("totalVolume"),
-  totalValue: float("totalValue"),
-  freightValue: float("freightValue"),
-  estimatedDelivery: timestamp("estimatedDelivery"),
-  actualDelivery: timestamp("actualDelivery"),
-  driverId: int("driverId"),
-  vehicleId: int("vehicleId"),
-  routeId: int("routeId"),
-  warehouseId: int("warehouseId"),
+  destCity: text("destCity"),
+  destState: text("destState"),
+  destZip: text("destZip"),
+  destLat: real("destLat"),
+  destLng: real("destLng"),
+  totalWeight: real("totalWeight"),
+  totalVolume: real("totalVolume"),
+  totalValue: real("totalValue"),
+  freightValue: real("freightValue"),
+  estimatedDelivery: integer("estimatedDelivery", { mode: "timestamp" }),
+  actualDelivery: integer("actualDelivery", { mode: "timestamp" }),
+  driverId: integer("driverId"),
+  vehicleId: integer("vehicleId"),
+  routeId: integer("routeId"),
+  warehouseId: integer("warehouseId"),
   notes: text("notes"),
   photoProofUrl: text("photoProofUrl"),
-  clientNotifiedAt: timestamp("clientNotifiedAt"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  clientNotifiedAt: integer("clientNotifiedAt", { mode: "timestamp" }),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()).$onUpdateFn(() => new Date()),
 });
 
 export type Order = typeof orders.$inferSelect;
 export type InsertOrder = typeof orders.$inferInsert;
 
 // ─── ITENS DO PEDIDO ─────────────────────────────────────
-export const orderItems = mysqlTable("order_items", {
-  id: int("id").autoincrement().primaryKey(),
-  orderId: int("orderId").notNull(),
-  sku: varchar("sku", { length: 50 }).notNull(),
-  productName: varchar("productName", { length: 255 }).notNull(),
-  quantity: int("quantity").notNull(),
-  weightKg: float("weightKg"),
-  volumeM3: float("volumeM3"),
-  unitPrice: float("unitPrice"),
-  totalPrice: float("totalPrice"),
+export const orderItems = sqliteTable("order_items", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  orderId: integer("orderId").notNull(),
+  sku: text("sku").notNull(),
+  productName: text("productName").notNull(),
+  quantity: integer("quantity").notNull(),
+  weightKg: real("weightKg"),
+  volumeM3: real("volumeM3"),
+  unitPrice: real("unitPrice"),
+  totalPrice: real("totalPrice"),
 });
 
 export type OrderItem = typeof orderItems.$inferSelect;
 export type InsertOrderItem = typeof orderItems.$inferInsert;
 
 // ─── HISTÓRICO DE STATUS DO PEDIDO ───────────────────────
-export const orderStatusHistory = mysqlTable("order_status_history", {
-  id: int("id").autoincrement().primaryKey(),
-  orderId: int("orderId").notNull(),
-  fromStatus: varchar("fromStatus", { length: 30 }),
-  toStatus: varchar("toStatus", { length: 30 }).notNull(),
+export const orderStatusHistory = sqliteTable("order_status_history", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  orderId: integer("orderId").notNull(),
+  fromStatus: text("fromStatus"),
+  toStatus: text("toStatus").notNull(),
   notes: text("notes"),
-  userId: int("userId"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  userId: integer("userId"),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
 
 export type OrderStatusHistory = typeof orderStatusHistory.$inferSelect;
 
 // ─── COTAÇÕES ────────────────────────────────────────────
-export const quotes = mysqlTable("quotes", {
-  id: int("id").autoincrement().primaryKey(),
-  quoteNumber: varchar("quoteNumber", { length: 30 }).notNull().unique(),
-  clientId: int("clientId"),
-  originZip: varchar("originZip", { length: 10 }).notNull(),
-  originCity: varchar("originCity", { length: 100 }),
-  originState: varchar("originState", { length: 2 }),
-  destZip: varchar("destZip", { length: 10 }).notNull(),
-  destCity: varchar("destCity", { length: 100 }),
-  destState: varchar("destState", { length: 2 }),
-  weightKg: float("weightKg").notNull(),
-  volumeM3: float("volumeM3"),
-  distanceKm: float("distanceKm"),
-  urgency: mysqlEnum("urgency", ["standard", "express", "same_day"]).default("standard").notNull(),
-  basePrice: float("basePrice"),
-  weightPrice: float("weightPrice"),
-  distancePrice: float("distancePrice"),
-  urgencyMultiplier: float("urgencyMultiplier").default(1.0),
-  totalPrice: float("totalPrice"),
-  validUntil: timestamp("validUntil"),
-  status: mysqlEnum("status", ["pending", "accepted", "rejected", "expired", "converted"]).default("pending").notNull(),
-  orderId: int("orderId"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+export const quotes = sqliteTable("quotes", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  quoteNumber: text("quoteNumber").notNull().unique(),
+  clientId: integer("clientId"),
+  originZip: text("originZip").notNull(),
+  originCity: text("originCity"),
+  originState: text("originState"),
+  destZip: text("destZip").notNull(),
+  destCity: text("destCity"),
+  destState: text("destState"),
+  weightKg: real("weightKg").notNull(),
+  volumeM3: real("volumeM3"),
+  distanceKm: real("distanceKm"),
+  urgency: text("urgency").$type<"standard" | "express" | "same_day">().default("standard").notNull(),
+  basePrice: real("basePrice"),
+  weightPrice: real("weightPrice"),
+  distancePrice: real("distancePrice"),
+  urgencyMultiplier: real("urgencyMultiplier").default(1.0),
+  totalPrice: real("totalPrice"),
+  validUntil: integer("validUntil", { mode: "timestamp" }),
+  status: text("status").$type<"pending" | "accepted" | "rejected" | "expired" | "converted">().default("pending").notNull(),
+  orderId: integer("orderId"),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()).$onUpdateFn(() => new Date()),
 });
 
 export type Quote = typeof quotes.$inferSelect;
 export type InsertQuote = typeof quotes.$inferInsert;
 
 // ─── ROTAS (TMS) ─────────────────────────────────────────
-export const routes = mysqlTable("routes", {
-  id: int("id").autoincrement().primaryKey(),
-  routeCode: varchar("routeCode", { length: 30 }).notNull(),
-  driverId: int("driverId"),
-  vehicleId: int("vehicleId"),
-  status: mysqlEnum("status", ["planned", "in_progress", "completed", "cancelled"]).default("planned").notNull(),
+export const routes = sqliteTable("routes", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  routeCode: text("routeCode").notNull(),
+  driverId: integer("driverId"),
+  vehicleId: integer("vehicleId"),
+  status: text("status").$type<"planned" | "in_progress" | "completed" | "cancelled">().default("planned").notNull(),
   originAddress: text("originAddress"),
-  originLat: float("originLat"),
-  originLng: float("originLng"),
+  originLat: real("originLat"),
+  originLng: real("originLng"),
   destAddress: text("destAddress"),
-  destLat: float("destLat"),
-  destLng: float("destLng"),
-  distanceKm: float("distanceKm"),
-  estimatedDuration: int("estimatedDuration"),
-  actualDuration: int("actualDuration"),
-  startedAt: timestamp("startedAt"),
-  completedAt: timestamp("completedAt"),
-  waypoints: json("waypoints"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  destLat: real("destLat"),
+  destLng: real("destLng"),
+  distanceKm: real("distanceKm"),
+  estimatedDuration: integer("estimatedDuration"),
+  actualDuration: integer("actualDuration"),
+  startedAt: integer("startedAt", { mode: "timestamp" }),
+  completedAt: integer("completedAt", { mode: "timestamp" }),
+  waypoints: text("waypoints", { mode: "json" }).$type<any[]>(),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()).$onUpdateFn(() => new Date()),
 });
 
 export type Route = typeof routes.$inferSelect;
 export type InsertRoute = typeof routes.$inferInsert;
 
 // ─── TRACKING (Rastreamento) ─────────────────────────────
-export const trackingPoints = mysqlTable("tracking_points", {
-  id: int("id").autoincrement().primaryKey(),
-  orderId: int("orderId"),
-  routeId: int("routeId"),
-  driverId: int("driverId"),
-  vehicleId: int("vehicleId"),
-  lat: float("lat").notNull(),
-  lng: float("lng").notNull(),
-  speed: float("speed"),
-  heading: float("heading"),
-  eventType: varchar("eventType", { length: 50 }),
+export const trackingPoints = sqliteTable("tracking_points", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  orderId: integer("orderId"),
+  routeId: integer("routeId"),
+  driverId: integer("driverId"),
+  vehicleId: integer("vehicleId"),
+  lat: real("lat").notNull(),
+  lng: real("lng").notNull(),
+  speed: real("speed"),
+  heading: real("heading"),
+  eventType: text("eventType"),
   notes: text("notes"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
 
 export type TrackingPoint = typeof trackingPoints.$inferSelect;
 export type InsertTrackingPoint = typeof trackingPoints.$inferInsert;
 
 // ─── DOCUMENTOS FISCAIS ──────────────────────────────────
-export const fiscalDocuments = mysqlTable("fiscal_documents", {
-  id: int("id").autoincrement().primaryKey(),
-  type: mysqlEnum("type", ["cte", "mdfe", "nfe"]).notNull(),
-  number: varchar("number", { length: 50 }).notNull(),
-  series: varchar("series", { length: 10 }),
-  accessKey: varchar("accessKey", { length: 50 }),
-  orderId: int("orderId"),
-  routeId: int("routeId"),
-  clientId: int("clientId"),
-  status: mysqlEnum("status", ["draft", "authorized", "cancelled", "rejected", "corrected"]).default("draft").notNull(),
-  issueDate: timestamp("issueDate"),
-  totalValue: float("totalValue"),
+export const fiscalDocuments = sqliteTable("fiscal_documents", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  type: text("type").$type<"cte" | "mdfe" | "nfe">().notNull(),
+  number: text("number").notNull(),
+  series: text("series"),
+  accessKey: text("accessKey"),
+  orderId: integer("orderId"),
+  routeId: integer("routeId"),
+  clientId: integer("clientId"),
+  status: text("status").$type<"draft" | "authorized" | "cancelled" | "rejected" | "corrected">().default("draft").notNull(),
+  issueDate: integer("issueDate", { mode: "timestamp" }),
+  totalValue: real("totalValue"),
   xmlUrl: text("xmlUrl"),
   pdfUrl: text("pdfUrl"),
-  sefazProtocol: varchar("sefazProtocol", { length: 50 }),
+  sefazProtocol: text("sefazProtocol"),
   notes: text("notes"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()).$onUpdateFn(() => new Date()),
 });
 
 export type FiscalDocument = typeof fiscalDocuments.$inferSelect;
 export type InsertFiscalDocument = typeof fiscalDocuments.$inferInsert;
 
 // ─── FINANCEIRO - TRANSAÇÕES ─────────────────────────────
-export const financialTransactions = mysqlTable("financial_transactions", {
-  id: int("id").autoincrement().primaryKey(),
-  type: mysqlEnum("type", ["receivable", "payable"]).notNull(),
-  category: varchar("category", { length: 100 }).notNull(),
+export const financialTransactions = sqliteTable("financial_transactions", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  type: text("type").$type<"receivable" | "payable">().notNull(),
+  category: text("category").notNull(),
   description: text("description"),
-  orderId: int("orderId"),
-  clientId: int("clientId"),
-  driverId: int("driverId"),
-  amount: float("amount").notNull(),
-  dueDate: timestamp("dueDate").notNull(),
-  paidDate: timestamp("paidDate"),
-  status: mysqlEnum("status", ["pending", "paid", "overdue", "cancelled"]).default("pending").notNull(),
-  paymentMethod: varchar("paymentMethod", { length: 50 }),
-  stripePaymentId: varchar("stripePaymentId", { length: 255 }),
-  invoiceNumber: varchar("invoiceNumber", { length: 50 }),
+  orderId: integer("orderId"),
+  clientId: integer("clientId"),
+  driverId: integer("driverId"),
+  amount: real("amount").notNull(),
+  dueDate: integer("dueDate", { mode: "timestamp" }).notNull(),
+  paidDate: integer("paidDate", { mode: "timestamp" }),
+  status: text("status").$type<"pending" | "paid" | "overdue" | "cancelled">().default("pending").notNull(),
+  paymentMethod: text("paymentMethod"),
+  stripePaymentId: text("stripePaymentId"),
+  invoiceNumber: text("invoiceNumber"),
   notes: text("notes"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()).$onUpdateFn(() => new Date()),
 });
 
 export type FinancialTransaction = typeof financialTransactions.$inferSelect;
 export type InsertFinancialTransaction = typeof financialTransactions.$inferInsert;
 
 // ─── ALERTAS ─────────────────────────────────────────────
-export const alerts = mysqlTable("alerts", {
-  id: int("id").autoincrement().primaryKey(),
-  type: mysqlEnum("type", [
-    "delivery_delay", "route_deviation", "document_expiry",
-    "low_inventory", "maintenance_due", "payment_overdue",
-    "geofence_breach", "system"
-  ]).notNull(),
-  severity: mysqlEnum("severity", ["info", "warning", "critical"]).default("warning").notNull(),
-  title: varchar("title", { length: 255 }).notNull(),
+export const alerts = sqliteTable("alerts", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  type: text("type").$type<
+    "delivery_delay" | "route_deviation" | "document_expiry" |
+    "low_inventory" | "maintenance_due" | "payment_overdue" |
+    "geofence_breach" | "system"
+  >().notNull(),
+  severity: text("severity").$type<"info" | "warning" | "critical">().default("warning").notNull(),
+  title: text("title").notNull(),
   message: text("message").notNull(),
-  entityType: varchar("entityType", { length: 50 }),
-  entityId: int("entityId"),
-  isRead: boolean("isRead").default(false).notNull(),
-  userId: int("userId"),
-  emailSent: boolean("emailSent").default(false),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  entityType: text("entityType"),
+  entityId: integer("entityId"),
+  isRead: integer("isRead", { mode: "boolean" }).default(false).notNull(),
+  userId: integer("userId"),
+  emailSent: integer("emailSent", { mode: "boolean" }).default(false),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
 
 export type Alert = typeof alerts.$inferSelect;
 export type InsertAlert = typeof alerts.$inferInsert;
 
-// ─── ADIANTAMENTOS DE MOTORISTAS ───────────────────────────────────────
-export const driverAdvances = mysqlTable("driver_advances", {
-  id: int("id").autoincrement().primaryKey(),
-  driverId: int("driverId").notNull(),
-  routeId: int("routeId"),
-  amount: float("amount").notNull(),
+// ─── ADIANTAMENTOS DE MOTORISTAS ─────────────────────────
+export const driverAdvances = sqliteTable("driver_advances", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  driverId: integer("driverId").notNull(),
+  routeId: integer("routeId"),
+  amount: real("amount").notNull(),
   reason: text("reason").notNull(),
-  status: mysqlEnum("status", ["pending", "approved", "rejected", "paid"]).default("pending").notNull(),
-  reviewedBy: int("reviewedBy"),
+  status: text("status").$type<"pending" | "approved" | "rejected" | "paid">().default("pending").notNull(),
+  reviewedBy: integer("reviewedBy"),
   reviewNote: text("reviewNote"),
-  reviewedAt: timestamp("reviewedAt"),
-  paidAt: timestamp("paidAt"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  reviewedAt: integer("reviewedAt", { mode: "timestamp" }),
+  paidAt: integer("paidAt", { mode: "timestamp" }),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()).$onUpdateFn(() => new Date()),
 });
 
 export type DriverAdvance = typeof driverAdvances.$inferSelect;
 export type InsertDriverAdvance = typeof driverAdvances.$inferInsert;
 
-// ─── TOKENS DE ACESSO DE CLIENTES ──────────────────────────────────────
-export const clientAccessTokens = mysqlTable("client_access_tokens", {
-  id: int("id").autoincrement().primaryKey(),
-  clientId: int("clientId").notNull(),
-  token: varchar("token", { length: 64 }).notNull().unique(),
-  label: varchar("label", { length: 100 }),
-  isActive: boolean("isActive").default(true).notNull(),
-  expiresAt: timestamp("expiresAt"),
-  lastUsedAt: timestamp("lastUsedAt"),
-  createdBy: int("createdBy"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+// ─── TOKENS DE ACESSO DE CLIENTES ────────────────────────
+export const clientAccessTokens = sqliteTable("client_access_tokens", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  clientId: integer("clientId").notNull(),
+  token: text("token").notNull().unique(),
+  label: text("label"),
+  isActive: integer("isActive", { mode: "boolean" }).default(true).notNull(),
+  expiresAt: integer("expiresAt", { mode: "timestamp" }),
+  lastUsedAt: integer("lastUsedAt", { mode: "timestamp" }),
+  createdBy: integer("createdBy"),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
 
 export type ClientAccessToken = typeof clientAccessTokens.$inferSelect;
 export type InsertClientAccessToken = typeof clientAccessTokens.$inferInsert;
 
-// ─── CREDENCIAIS DO MOTORISTA (PIN para login no PWA) ───────────────────
-export const driverCredentials = mysqlTable("driver_credentials", {
-  id: int("id").autoincrement().primaryKey(),
-  driverId: int("driverId").notNull().unique(),
-  pin: varchar("pin", { length: 6 }).notNull(),
-  isActive: boolean("isActive").default(true).notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+// ─── CREDENCIAIS DO MOTORISTA (PIN para login no PWA) ────
+export const driverCredentials = sqliteTable("driver_credentials", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  driverId: integer("driverId").notNull().unique(),
+  pin: text("pin").notNull(),
+  isActive: integer("isActive", { mode: "boolean" }).default(true).notNull(),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()).$onUpdateFn(() => new Date()),
 });
 
 export type DriverCredential = typeof driverCredentials.$inferSelect;
 export type InsertDriverCredential = typeof driverCredentials.$inferInsert;
 
-// ─── OCORRÊNCIAS DE ENTREGA ────────────────────────────────────────────────
-export const deliveryOccurrences = mysqlTable("delivery_occurrences", {
-  id: int("id").autoincrement().primaryKey(),
-  orderId: int("orderId").notNull(),
-  driverId: int("driverId").notNull(),
-  type: mysqlEnum("type", ["damage", "refusal", "address_not_found", "recipient_absent", "delay", "other"]).notNull(),
+// ─── OCORRÊNCIAS DE ENTREGA ───────────────────────────────
+export const deliveryOccurrences = sqliteTable("delivery_occurrences", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  orderId: integer("orderId").notNull(),
+  driverId: integer("driverId").notNull(),
+  type: text("type").$type<"damage" | "refusal" | "address_not_found" | "recipient_absent" | "delay" | "other">().notNull(),
   description: text("description").notNull(),
   photoUrl: text("photoUrl"),
-  lat: float("lat"),
-  lng: float("lng"),
-  resolvedAt: timestamp("resolvedAt"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  lat: real("lat"),
+  lng: real("lng"),
+  resolvedAt: integer("resolvedAt", { mode: "timestamp" }),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
 
 export type DeliveryOccurrence = typeof deliveryOccurrences.$inferSelect;

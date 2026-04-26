@@ -4,7 +4,9 @@ import { protectedProcedure, router } from "../_core/trpc";
 import { ENV } from "../_core/env";
 import { PRODUCTS } from "../stripe/products";
 
-const stripe = new Stripe(ENV.stripeSecretKey || "", { apiVersion: "2025-03-31.basil" as any });
+function getStripe() {
+  return new Stripe(ENV.stripeSecretKey || "sk_placeholder", { apiVersion: "2025-03-31.basil" as any });
+}
 
 export const stripeRouter = router({
   // One-time payment checkout (freight, advance)
@@ -18,9 +20,9 @@ export const stripeRouter = router({
       : input.type === "advance" ? PRODUCTS.DRIVER_ADVANCE
       : PRODUCTS.RECURRING_INVOICE;
 
-    const origin = ctx.req.headers.origin || "http://localhost:3000";
+    const origin = ctx.req.headers.get("origin") || "http://localhost:3000";
 
-    const session = await stripe.checkout.sessions.create({
+    const session = await getStripe().checkout.sessions.create({
       payment_method_types: ["card"],
       line_items: [{
         price_data: {
@@ -58,9 +60,9 @@ export const stripeRouter = router({
     interval: z.enum(["week", "month", "year"]).default("month"),
     clientName: z.string().optional(),
   })).mutation(async ({ input, ctx }) => {
-    const origin = ctx.req.headers.origin || "http://localhost:3000";
+    const origin = ctx.req.headers.get("origin") || "http://localhost:3000";
 
-    const session = await stripe.checkout.sessions.create({
+    const session = await getStripe().checkout.sessions.create({
       payment_method_types: ["card"],
       line_items: [{
         price_data: {
@@ -97,14 +99,14 @@ export const stripeRouter = router({
   listSubscriptions: protectedProcedure.query(async ({ ctx }) => {
     try {
       // Find customer by email
-      const customers = await stripe.customers.list({
+      const customers = await getStripe().customers.list({
         email: ctx.user.email || undefined,
         limit: 1,
       });
 
       if (customers.data.length === 0) return [];
 
-      const subscriptions = await stripe.subscriptions.list({
+      const subscriptions = await getStripe().subscriptions.list({
         customer: customers.data[0].id,
         limit: 20,
       });
@@ -127,13 +129,13 @@ export const stripeRouter = router({
   cancelSubscription: protectedProcedure.input(z.object({
     subscriptionId: z.string(),
   })).mutation(async ({ input }) => {
-    await stripe.subscriptions.cancel(input.subscriptionId);
+    await getStripe().subscriptions.cancel(input.subscriptionId);
     return { success: true };
   }),
 
   getPaymentHistory: protectedProcedure.query(async ({ ctx }) => {
     try {
-      const sessions = await stripe.checkout.sessions.list({
+      const sessions = await getStripe().checkout.sessions.list({
         limit: 20,
       });
 

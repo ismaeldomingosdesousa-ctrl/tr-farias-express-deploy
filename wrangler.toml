@@ -1,0 +1,24 @@
+name = "tr-farias-express"
+main = "worker.ts"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = "./dist/public"
+binding = "ASSETS"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "tr-farias-express-db"
+database_id = "18478b19-26f6-4c3a-8c76-d8b8ad57aa7f"
+
+# Secrets (set via: wrangler secret put <KEY>):
+# JWT_SECRET
+# VITE_APP_ID
+# OAUTH_SERVER_URL
+# OWNER_OPEN_ID
+# BUILT_IN_FORGE_API_URL
+# BUILT_IN_FORGE_API_KEY
+
+[vars]
+NODE_ENV = "production"
