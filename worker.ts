@@ -77,12 +77,14 @@ export default {
 
     // ── Static assets / SPA fallback ────────────────────────
     if (env.ASSETS) {
-      const assetResponse = await env.ASSETS.fetch(request);
-      // For SPA routing: serve index.html on 404 (client-side routes)
-      if (assetResponse.status === 404) {
-        return env.ASSETS.fetch(new Request(new URL("/index.html", url).toString(), request));
+      // Paths with file extensions (JS, CSS, images, sw.js…) → serve asset directly
+      if (url.pathname.includes(".")) {
+        return env.ASSETS.fetch(request);
       }
-      return assetResponse;
+      // All other paths (/, /orders, /driver, /track…) → SPA index.html
+      return env.ASSETS.fetch(
+        new Request(new URL("/index.html", request.url).toString())
+      );
     }
     return new Response("Not found", { status: 404 });
   },
