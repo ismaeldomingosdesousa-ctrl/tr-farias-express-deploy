@@ -1,17 +1,18 @@
 {
-  "name": "TR Farias Express — Motorista",
+  "name": "TR Farias — Motorista",
   "short_name": "TR Motorista",
   "description": "App do motorista TR Farias Express",
   "start_url": "/driver",
   "display": "standalone",
-  "background_color": "#000000",
-  "theme_color": "#e11d48",
+  "background_color": "#080818",
+  "theme_color": "#7C3AED",
   "orientation": "portrait",
   "icons": [
     {
-      "src": "/favicon.ico",
-      "sizes": "64x64",
-      "type": "image/x-icon"
+      "src": "/driver-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
     }
   ],
   "categories": ["logistics", "transportation"],

@@ -8,9 +8,11 @@ export function buildSessionCookieString(
   const isSecure =
     url.protocol === "https:" ||
     req.headers.get("x-forwarded-proto") === "https";
-  return `${name}=${value}; Path=/; HttpOnly; SameSite=None${isSecure ? "; Secure" : ""}; Max-Age=${maxAgeSeconds}`;
+  const domainAttr = url.hostname.endsWith("trfarias.com.br") ? "; Domain=.trfarias.com.br" : "";
+  return `${name}=${value}; Path=/; HttpOnly; SameSite=None${isSecure ? "; Secure" : ""}${domainAttr}; Max-Age=${maxAgeSeconds}`;
 }
 
-export function buildClearCookieString(name: string): string {
-  return `${name}=; Path=/; HttpOnly; SameSite=None; Secure; Max-Age=0`;
+export function buildClearCookieString(name: string, req?: Request): string {
+  const domainAttr = req && new URL(req.url).hostname.endsWith("trfarias.com.br") ? "; Domain=.trfarias.com.br" : "";
+  return `${name}=; Path=/; HttpOnly; SameSite=None; Secure${domainAttr}; Max-Age=0`;
 }

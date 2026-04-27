@@ -1,20 +1,20 @@
 import { trpc } from "@/lib/trpc";
-import { MapView } from "@/components/Map";
+import { MapView, type MapMarker } from "@/components/Map";
 import { MapPin, Navigation, Truck, Clock, AlertTriangle, Shield } from "lucide-react";
-import { useState, useCallback, useRef, useMemo } from "react";
+import { useState, useMemo } from "react";
 
 export default function Tracking() {
   const { data: vehicles } = trpc.vehicles.list.useQuery();
   const { data: orders } = trpc.orders.list.useQuery({ status: "in_transit" });
   const { data: routes } = trpc.routes.list.useQuery();
+  const { data: driversWithGps } = trpc.drivers.list.useQuery();
   const [selectedRouteId, setSelectedRouteId] = useState<number | null>(null);
-  const mapRef = useRef<google.maps.Map | null>(null);
-  const markersRef = useRef<google.maps.Marker[]>([]);
+  const [panTo, setPanTo] = useState<{ lat: number; lng: number } | null>(null);
 
   const activeVehicles = vehicles?.filter(v => v.status === "in_use" && v.lat && v.lng) ?? [];
   const activeRoutes = useMemo(() => routes?.filter(r => r.status === "in_progress") ?? [], [routes]);
+  const activeDrivers = (driversWithGps ?? []).filter(d => d.lat && d.lng && (d.status === "available" || d.status === "on_trip"));
 
-  // ETA query for selected route
   const selectedRoute = activeRoutes.find(r => r.id === selectedRouteId);
   const vehicleForRoute = selectedRoute?.vehicleId
     ? vehicles?.find(v => v.id === selectedRoute.vehicleId)
@@ -40,36 +40,20 @@ export default function Tracking() {
     refetchInterval: 30000,
   });
 
-  const handleMapReady = useCallback((map: google.maps.Map) => {
-    mapRef.current = map;
-    markersRef.current.forEach(m => m.setMap(null));
-    markersRef.current = [];
-
-    activeVehicles.forEach(v => {
-      if (v.lat && v.lng) {
-        const marker = new google.maps.Marker({
-          position: { lat: v.lat, lng: v.lng },
-          map,
-          title: `${v.plate} - ${v.type}`,
-          icon: {
-            path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
-            scale: 6,
-            fillColor: "#ef4444",
-            fillOpacity: 1,
-            strokeColor: "#ffffff",
-            strokeWeight: 2,
-            rotation: 0,
-          },
-        });
-        markersRef.current.push(marker);
-      }
-    });
-
-    if (activeVehicles.length === 0) {
-      map.setCenter({ lat: -15.77, lng: -47.92 });
-      map.setZoom(4);
-    }
-  }, [activeVehicles]);
+  const mapMarkers = useMemo<MapMarker[]>(() => [
+    ...activeVehicles.map(v => ({
+      lat: v.lat!,
+      lng: v.lng!,
+      title: `${v.plate} - ${v.type}`,
+      color: "red" as const,
+    })),
+    ...activeDrivers.map(d => ({
+      lat: d.lat!,
+      lng: d.lng!,
+      title: `${d.name} (Motorista)`,
+      color: "green" as const,
+    })),
+  ], [activeVehicles, activeDrivers]);
 
   return (
     <div className="space-y-6">
@@ -89,13 +73,9 @@ export default function Tracking() {
             ) : (
               <div className="space-y-2">
                 {activeVehicles.map(v => (
-                  <div key={v.id} className="flex items-center gap-2 p-2 hover:bg-accent/30 transition-colors cursor-pointer"
-                    onClick={() => {
-                      if (mapRef.current && v.lat && v.lng) {
-                        mapRef.current.panTo({ lat: v.lat, lng: v.lng });
-                        mapRef.current.setZoom(14);
-                      }
-                    }}>
+                  <div key={v.id}
+                    className="flex items-center gap-2 p-2 hover:bg-accent/30 transition-colors cursor-pointer"
+                    onClick={() => v.lat && v.lng && setPanTo({ lat: v.lat, lng: v.lng })}>
                     <Truck className="h-4 w-4 text-primary shrink-0" />
                     <div className="min-w-0">
                       <p className="text-sm font-bold tracking-wider truncate">{v.plate}</p>
@@ -148,11 +128,37 @@ export default function Tracking() {
               </div>
             )}
           </div>
+
+          <div className="brutal-card">
+            <h3 className="text-sm font-bold tracking-widest text-foreground mb-3">MOTORISTAS COM GPS</h3>
+            <div className="brutal-divider mb-3" />
+            {activeDrivers.length === 0 ? (
+              <p className="text-xs text-muted-foreground tracking-wider">NENHUM MOTORISTA COM GPS ATIVO</p>
+            ) : (
+              <div className="space-y-2">
+                {activeDrivers.map(d => (
+                  <div key={d.id}
+                    className="flex items-start gap-2 p-2 hover:bg-accent/30 transition-colors cursor-pointer"
+                    onClick={() => d.lat && d.lng && setPanTo({ lat: d.lat, lng: d.lng })}>
+                    <Navigation className="h-3 w-3 text-green-400 shrink-0 mt-0.5 animate-pulse" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold tracking-wider truncate">{d.name}</p>
+                      <p className="text-xs text-muted-foreground font-mono">{d.lat?.toFixed(4)}, {d.lng?.toFixed(4)}</p>
+                      {d.lastLocationUpdate && (
+                        <p className="text-xs text-muted-foreground/60">
+                          {new Date(d.lastLocationUpdate).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Map + ETA/Geofence panels */}
         <div className="lg:col-span-3 space-y-4">
-          {/* ETA & Geofence Status Bar */}
           {selectedRouteId && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="brutal-card">
@@ -214,9 +220,7 @@ export default function Tracking() {
                         </>
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground tracking-wider">
-                      {geofenceQuery.data.message}
-                    </p>
+                    <p className="text-xs text-muted-foreground tracking-wider">{geofenceQuery.data.message}</p>
                     <p className="text-xs text-muted-foreground tracking-wider">
                       ROTA: {selectedRoute?.routeCode} | CORREDOR: 15 km
                     </p>
@@ -228,13 +232,13 @@ export default function Tracking() {
             </div>
           )}
 
-          {/* Map */}
           <div className="brutal-card p-0 overflow-hidden">
             <MapView
               className="w-full h-[600px]"
               initialCenter={{ lat: -15.77, lng: -47.92 }}
               initialZoom={4}
-              onMapReady={handleMapReady}
+              markers={mapMarkers}
+              panTo={panTo}
             />
           </div>
         </div>

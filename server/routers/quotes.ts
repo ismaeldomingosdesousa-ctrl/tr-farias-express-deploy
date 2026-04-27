@@ -86,6 +86,7 @@ export const quotesRouter = router({
 
   convertToOrder: protectedProcedure.input(z.object({
     id: z.number(),
+    clientId: z.number().optional(),
   })).mutation(async ({ input, ctx }) => {
     const quote = await getQuoteById(input.id);
     if (!quote) throw new Error("Cotação não encontrada");
@@ -93,7 +94,9 @@ export const quotesRouter = router({
     if (quote.status === "rejected") throw new Error("Não é possível converter uma cotação rejeitada");
     if (quote.status === "expired") throw new Error("Não é possível converter uma cotação expirada");
     if (quote.status !== "accepted") throw new Error("A cotação precisa estar ACEITA para ser convertida em pedido");
-    if (!quote.clientId) throw new Error("A cotação não possui cliente vinculado. Edite a cotação e selecione um cliente antes de converter.");
+
+    const effectiveClientId = input.clientId ?? quote.clientId;
+    if (!effectiveClientId) throw new Error("Selecione um cliente para converter em pedido.");
 
     // Map urgency to priority
     const priorityMap: Record<string, "low" | "normal" | "high" | "urgent"> = {
@@ -105,7 +108,7 @@ export const quotesRouter = router({
     const orderNumber = `ORD-${nanoid(8).toUpperCase()}`;
     const orderId = await createOrder({
       orderNumber,
-      clientId: quote.clientId ?? 0,
+      clientId: effectiveClientId,
       originZip: quote.originZip,
       originCity: quote.originCity ?? undefined,
       originState: quote.originState ?? undefined,

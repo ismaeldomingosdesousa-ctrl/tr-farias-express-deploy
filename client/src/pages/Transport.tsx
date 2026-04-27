@@ -28,24 +28,37 @@ const routeStatusColors: Record<string, string> = {
   completed: "text-green-400 border-green-400/50", cancelled: "text-muted-foreground border-muted",
 };
 
-// Google Maps Directions API via Manus proxy
 async function calculateRouteDistance(origin: string, destination: string): Promise<{ distanceKm: number; durationMin: number } | null> {
   try {
-    const params = new URLSearchParams({
-      origin,
-      destination,
-      key: "proxy",
-      language: "pt-BR",
-    });
+    const params = new URLSearchParams({ origin, destination, key: "proxy", language: "pt-BR" });
     const res = await fetch(`https://forge.manus.ai/v1/maps/proxy/maps/api/directions/json?${params}`);
     const data = await res.json();
     if (data.status === "OK" && data.routes?.[0]?.legs?.[0]) {
       const leg = data.routes[0].legs[0];
-      const distanceKm = Math.round(leg.distance.value / 1000);
-      const durationMin = Math.round(leg.duration.value / 60);
-      return { distanceKm, durationMin };
+      return { distanceKm: Math.round(leg.distance.value / 1000), durationMin: Math.round(leg.duration.value / 60) };
     }
-    return null;
+  } catch { /* fall through to nominatim */ }
+
+  // Fallback: extract city/state from address string and use Nominatim + haversine
+  try {
+    const geocode = async (addr: string) => {
+      const q = encodeURIComponent(`${addr}, Brasil`);
+      const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1`, {
+        headers: { "User-Agent": "TrFariasExpress/1.0" },
+      });
+      const d = await r.json() as Array<{ lat: string; lon: string }>;
+      if (!d[0]) return null;
+      return { lat: parseFloat(d[0].lat), lng: parseFloat(d[0].lon) };
+    };
+    const [p1, p2] = await Promise.all([geocode(origin), geocode(destination)]);
+    if (!p1 || !p2) return null;
+    const R = 6371;
+    const dLat = (p2.lat - p1.lat) * Math.PI / 180;
+    const dLng = (p2.lng - p1.lng) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(p1.lat * Math.PI / 180) * Math.cos(p2.lat * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+    const straight = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const roadKm = Math.round(straight * 1.35);
+    return { distanceKm: roadKm, durationMin: Math.round(roadKm / 70 * 60) };
   } catch {
     return null;
   }

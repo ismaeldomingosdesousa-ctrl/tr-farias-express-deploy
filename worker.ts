@@ -35,6 +35,30 @@ export default {
     initDb(env.DB);
 
     const url = new URL(request.url);
+    const hostname = url.hostname;
+
+    // ── Domain routing ──────────────────────────────────────
+    // Apex → www
+    if (hostname === "trfarias.com.br") {
+      return new Response(null, {
+        status: 301,
+        headers: { Location: `https://www.trfarias.com.br${url.pathname}${url.search}` },
+      });
+    }
+    // login subdomain → app subdomain (SPA shows login when unauthenticated)
+    if (hostname === "login.trfarias.com.br") {
+      return new Response(null, {
+        status: 302,
+        headers: { Location: "https://app.trfarias.com.br/dashboard" },
+      });
+    }
+    // app root → dashboard
+    if (hostname === "app.trfarias.com.br" && url.pathname === "/") {
+      return new Response(null, {
+        status: 302,
+        headers: { Location: "https://app.trfarias.com.br/dashboard" },
+      });
+    }
 
     // ── Local auth ──────────────────────────────────────────
     if (url.pathname === "/api/auth/login" && request.method === "POST") {

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
-import { MapView } from "@/components/Map";
+import { MapView, type MapMarker } from "@/components/Map";
 import { Package, Truck, CheckCircle2, Clock, AlertTriangle, MapPin, Phone, ChevronDown, ChevronUp } from "lucide-react";
 
 const STATUS_STEPS = [
@@ -104,20 +104,13 @@ function OrderCard({ order, token }: { order: any; token: string }) {
           {o.status === "in_transit" && detail?.driverLat && detail?.driverLng && (
             <div className="rounded overflow-hidden h-48">
               <MapView
-                onMapReady={(map) => {
-                  const driverPos = { lat: detail.driverLat!, lng: detail.driverLng! };
-                  new google.maps.Marker({ position: driverPos, map, title: "Motorista" });
-                  if (o.destLat && o.destLng) {
-                    new google.maps.Marker({
-                      position: { lat: o.destLat, lng: o.destLng },
-                      map,
-                      title: "Destino",
-                      icon: { url: "http://maps.google.com/mapfiles/ms/icons/red-dot.png" }
-                    });
-                  }
-                  map.setCenter(driverPos);
-                  map.setZoom(13);
-                }}
+                className="w-full h-48"
+                initialCenter={{ lat: detail.driverLat, lng: detail.driverLng }}
+                initialZoom={13}
+                markers={[
+                  { lat: detail.driverLat, lng: detail.driverLng, title: "Motorista", color: "green" },
+                  ...(o.destLat && o.destLng ? [{ lat: o.destLat, lng: o.destLng, title: "Destino", color: "red" as const }] : []),
+                ] satisfies MapMarker[]}
               />
             </div>
           )}

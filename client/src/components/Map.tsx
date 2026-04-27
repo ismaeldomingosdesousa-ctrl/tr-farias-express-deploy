@@ -1,184 +1,105 @@
-/**
- * GOOGLE MAPS FRONTEND INTEGRATION - ESSENTIAL GUIDE
- *
- * USAGE FROM PARENT COMPONENT:
- * ======
- *
- * const mapRef = useRef<google.maps.Map | null>(null);
- *
- * <MapView
- *   initialCenter={{ lat: 40.7128, lng: -74.0060 }}
- *   initialZoom={15}
- *   onMapReady={(map) => {
- *     mapRef.current = map; // Store to control map from parent anytime, google map itself is in charge of the re-rendering, not react state.
- * </MapView>
- *
- * ======
- * Available Libraries and Core Features:
- * -------------------------------
- * 📍 MARKER (from `marker` library)
- * - Attaches to map using { map, position }
- * new google.maps.marker.AdvancedMarkerElement({
- *   map,
- *   position: { lat: 37.7749, lng: -122.4194 },
- *   title: "San Francisco",
- * });
- *
- * -------------------------------
- * 🏢 PLACES (from `places` library)
- * - Does not attach directly to map; use data with your map manually.
- * const place = new google.maps.places.Place({ id: PLACE_ID });
- * await place.fetchFields({ fields: ["displayName", "location"] });
- * map.setCenter(place.location);
- * new google.maps.marker.AdvancedMarkerElement({ map, position: place.location });
- *
- * -------------------------------
- * 🧭 GEOCODER (from `geocoding` library)
- * - Standalone service; manually apply results to map.
- * const geocoder = new google.maps.Geocoder();
- * geocoder.geocode({ address: "New York" }, (results, status) => {
- *   if (status === "OK" && results[0]) {
- *     map.setCenter(results[0].geometry.location);
- *     new google.maps.marker.AdvancedMarkerElement({
- *       map,
- *       position: results[0].geometry.location,
- *     });
- *   }
- * });
- *
- * -------------------------------
- * 📐 GEOMETRY (from `geometry` library)
- * - Pure utility functions; not attached to map.
- * const dist = google.maps.geometry.spherical.computeDistanceBetween(p1, p2);
- *
- * -------------------------------
- * 🛣️ ROUTES (from `routes` library)
- * - Combines DirectionsService (standalone) + DirectionsRenderer (map-attached)
- * const directionsService = new google.maps.DirectionsService();
- * const directionsRenderer = new google.maps.DirectionsRenderer({ map });
- * directionsService.route(
- *   { origin, destination, travelMode: "DRIVING" },
- *   (res, status) => status === "OK" && directionsRenderer.setDirections(res)
- * );
- *
- * -------------------------------
- * 🌦️ MAP LAYERS (attach directly to map)
- * - new google.maps.TrafficLayer().setMap(map);
- * - new google.maps.TransitLayer().setMap(map);
- * - new google.maps.BicyclingLayer().setMap(map);
- *
- * -------------------------------
- * ✅ SUMMARY
- * - “map-attached” → AdvancedMarkerElement, DirectionsRenderer, Layers.
- * - “standalone” → Geocoder, DirectionsService, DistanceMatrixService, ElevationService.
- * - “data-only” → Place, Geometry utilities.
- */
-
-/// <reference types="@types/google.maps" />
-
 import { useEffect, useRef } from "react";
-import { usePersistFn } from "@/hooks/usePersistFn";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 import { cn } from "@/lib/utils";
 
-declare global {
-  interface Window {
-    google?: typeof google;
-  }
-}
-
-const API_KEY = import.meta.env.VITE_FRONTEND_FORGE_API_KEY;
-const FORGE_BASE_URL =
-  import.meta.env.VITE_FRONTEND_FORGE_API_URL ||
-  "https://forge.butterfly-effect.dev";
-const MAPS_PROXY_URL = `${FORGE_BASE_URL}/v1/maps/proxy`;
-
-let _mapsLoadPromise: Promise<void> | null = null;
-
-function loadMapScript(): Promise<void> {
-  // Return existing promise if already loading or loaded
-  if (_mapsLoadPromise) return _mapsLoadPromise;
-
-  // If Google Maps is already available (e.g., loaded by another mechanism), resolve immediately
-  if (window.google?.maps) {
-    _mapsLoadPromise = Promise.resolve();
-    return _mapsLoadPromise;
-  }
-
-  _mapsLoadPromise = new Promise<void>((resolve, reject) => {
-    // Check if script tag already exists in DOM
-    const existingScript = document.querySelector(
-      `script[src*="maps/api/js"]`
-    );
-    if (existingScript) {
-      // Script tag exists but may still be loading
-      if (window.google?.maps) {
-        resolve();
-      } else {
-        existingScript.addEventListener("load", () => resolve());
-        existingScript.addEventListener("error", () => {
-          _mapsLoadPromise = null;
-          reject(new Error("Failed to load Google Maps script"));
-        });
-      }
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.src = `${MAPS_PROXY_URL}/maps/api/js?key=${API_KEY}&v=weekly&libraries=marker,places,geocoding,geometry`;
-    script.async = true;
-    script.crossOrigin = "anonymous";
-    script.onload = () => resolve();
-    script.onerror = () => {
-      _mapsLoadPromise = null;
-      reject(new Error("Failed to load Google Maps script"));
-    };
-    document.head.appendChild(script);
-  });
-
-  return _mapsLoadPromise;
+export interface MapMarker {
+  lat: number;
+  lng: number;
+  title?: string;
+  color?: "red" | "green" | "blue" | "orange" | "purple";
 }
 
 interface MapViewProps {
   className?: string;
-  initialCenter?: google.maps.LatLngLiteral;
+  initialCenter?: { lat: number; lng: number };
   initialZoom?: number;
-  onMapReady?: (map: google.maps.Map) => void;
+  markers?: MapMarker[];
+  panTo?: { lat: number; lng: number } | null;
+}
+
+const COLORS: Record<string, string> = {
+  red:    "#ef4444",
+  green:  "#22c55e",
+  blue:   "#3b82f6",
+  orange: "#f97316",
+  purple: "#7C3AED",
+};
+
+function makeIcon(color: string) {
+  const c = COLORS[color] ?? COLORS.red;
+  const svg = encodeURIComponent(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="36" viewBox="0 0 28 36">
+      <path d="M14 0C6.27 0 0 6.27 0 14c0 9.33 14 22 14 22s14-12.67 14-22C28 6.27 21.73 0 14 0z" fill="${c}" stroke="white" stroke-width="2"/>
+      <circle cx="14" cy="14" r="5" fill="white" opacity="0.9"/>
+    </svg>`);
+  return L.icon({
+    iconUrl: `data:image/svg+xml,${svg}`,
+    iconSize: [28, 36],
+    iconAnchor: [14, 36],
+    popupAnchor: [0, -36],
+  });
 }
 
 export function MapView({
   className,
-  initialCenter = { lat: 37.7749, lng: -122.4194 },
-  initialZoom = 12,
-  onMapReady,
+  initialCenter = { lat: -15.77, lng: -47.92 },
+  initialZoom = 4,
+  markers = [],
+  panTo,
 }: MapViewProps) {
-  const mapContainer = useRef<HTMLDivElement>(null);
-  const map = useRef<google.maps.Map | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  const markerLayerRef = useRef<L.LayerGroup | null>(null);
 
-  const init = usePersistFn(async () => {
-    await loadMapScript();
-    if (!mapContainer.current) {
-      console.error("Map container not found");
-      return;
-    }
-    map.current = new window.google.maps.Map(mapContainer.current, {
-      zoom: initialZoom,
-      center: initialCenter,
-      mapTypeControl: true,
-      fullscreenControl: true,
-      zoomControl: true,
-      streetViewControl: true,
-      mapId: "DEMO_MAP_ID",
-    });
-    if (onMapReady) {
-      onMapReady(map.current);
-    }
-  });
-
+  // Init map once
   useEffect(() => {
-    init();
-  }, [init]);
+    if (!containerRef.current || mapRef.current) return;
 
-  return (
-    <div ref={mapContainer} className={cn("w-full h-[500px]", className)} />
-  );
+    const map = L.map(containerRef.current, {
+      center: [initialCenter.lat, initialCenter.lng],
+      zoom: initialZoom,
+      zoomControl: true,
+    });
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      maxZoom: 19,
+    }).addTo(map);
+
+    markerLayerRef.current = L.layerGroup().addTo(map);
+    mapRef.current = map;
+
+    return () => {
+      map.remove();
+      mapRef.current = null;
+      markerLayerRef.current = null;
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Update markers when they change
+  useEffect(() => {
+    if (!markerLayerRef.current || !mapRef.current) return;
+    markerLayerRef.current.clearLayers();
+
+    markers.forEach(m => {
+      const icon = makeIcon(m.color ?? "red");
+      const marker = L.marker([m.lat, m.lng], { icon });
+      if (m.title) marker.bindPopup(m.title);
+      markerLayerRef.current!.addLayer(marker);
+    });
+
+    if (markers.length > 0) {
+      const bounds = L.latLngBounds(markers.map(m => [m.lat, m.lng]));
+      mapRef.current.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+    }
+  }, [markers]);
+
+  // Pan to target when requested
+  useEffect(() => {
+    if (!mapRef.current || !panTo) return;
+    mapRef.current.setView([panTo.lat, panTo.lng], 14);
+  }, [panTo]);
+
+  return <div ref={containerRef} className={cn("w-full h-[500px]", className)} />;
 }

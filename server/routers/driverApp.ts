@@ -4,6 +4,7 @@ import { getDb } from "../db";
 import {
   drivers, driverCredentials, driverAdvances, routes, orders,
   trackingPoints, orderStatusHistory, deliveryOccurrences, alerts,
+  financialTransactions,
 } from "../../drizzle/schema";
 import { eq, and, desc, inArray } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
@@ -297,6 +298,54 @@ export const driverAppRouter = router({
         .where(eq(driverAdvances.id, input.id));
       return { ok: true };
     }),
+  // Log a driver expense (fuel, toll, meal, etc.)
+  logExpense: publicProcedure
+    .input(z.object({
+      driverId: z.number(),
+      routeId: z.number().optional(),
+      category: z.enum(["fuel", "toll", "meal", "parking", "maintenance", "other"]),
+      amount: z.number().min(1).max(10000),
+      note: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const labels: Record<string, string> = {
+        fuel: "Combustível", toll: "Pedágio", meal: "Refeição",
+        parking: "Estacionamento", maintenance: "Manutenção", other: "Outros",
+      };
+
+      await db.insert(financialTransactions).values({
+        type: "payable",
+        category: `Despesa Motorista - ${labels[input.category]}`,
+        description: input.note ?? `${labels[input.category]} — motorista ID ${input.driverId}${input.routeId ? ` / rota ${input.routeId}` : ""}`,
+        driverId: input.driverId,
+        amount: input.amount,
+        dueDate: new Date(),
+        paidDate: new Date(),
+        status: "paid",
+        paymentMethod: "Motorista",
+      });
+
+      return { ok: true };
+    }),
+
+  // Get driver's logged expenses
+  myExpenses: publicProcedure
+    .input(z.object({ driverId: z.number() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return [];
+      return db.select().from(financialTransactions)
+        .where(and(
+          eq(financialTransactions.driverId, input.driverId),
+          eq(financialTransactions.paymentMethod, "Motorista"),
+        ))
+        .orderBy(desc(financialTransactions.createdAt))
+        .limit(60);
+    }),
+
   // ─── Admin-only: mark advance as paid ────────────────────────────────────
   markAdvancePaid: protectedProcedure
     .input(z.object({ id: z.number() }))

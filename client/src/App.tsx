@@ -5,6 +5,7 @@ import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import DashboardLayout from "./components/DashboardLayout";
+import Landing from "./pages/Landing";
 import Home from "./pages/Home";
 import Orders from "./pages/Orders";
 import Transport from "./pages/Transport";
@@ -25,7 +26,7 @@ function DashboardRouter() {
   return (
     <DashboardLayout>
       <Switch>
-        <Route path="/" component={Home} />
+        <Route path="/dashboard" component={Home} />
         <Route path="/orders" component={Orders} />
         <Route path="/transport" component={Transport} />
         <Route path="/warehouse" component={WarehousePage} />
@@ -47,6 +48,8 @@ function DashboardRouter() {
 function Router() {
   return (
     <Switch>
+      {/* Public landing page */}
+      <Route path="/" component={Landing} />
       {/* Standalone routes — no DashboardLayout */}
       <Route path="/driver" component={DriverApp} />
       <Route path="/track" component={ClientPortal} />

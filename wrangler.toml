@@ -23,3 +23,4 @@ migrations_dir = "drizzle"
 
 [vars]
 NODE_ENV = "production"
+
