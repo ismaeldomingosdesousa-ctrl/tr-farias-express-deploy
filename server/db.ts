@@ -17,6 +17,7 @@ import {
   fiscalDocuments, InsertFiscalDocument,
   financialTransactions, InsertFinancialTransaction,
   alerts, InsertAlert,
+  userCredentials,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -65,6 +66,18 @@ export async function getUserByOpenId(openId: string) {
   if (!db) return undefined;
   const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
   return result.length > 0 ? result[0] : undefined;
+}
+
+// ─── LOCAL AUTH HELPERS ──────────────────────────────────
+export async function getUserCredentialsByEmail(email: string) {
+  const db = getDb(); if (!db) return undefined;
+  const r = await db.select().from(userCredentials).where(eq(userCredentials.email, email.toLowerCase())).limit(1);
+  return r[0];
+}
+export async function upsertLocalUser(email: string, passwordHash: string, name: string, role: "user" | "admin" = "user") {
+  const db = getDb(); if (!db) return;
+  await db.insert(userCredentials).values({ email: email.toLowerCase(), passwordHash, name, role })
+    .onConflictDoUpdate({ target: userCredentials.email, set: { passwordHash, name, role, updatedAt: new Date() } });
 }
 
 // ─── CLIENT HELPERS ──────────────────────────────────────

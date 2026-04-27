@@ -420,6 +420,19 @@ export const driverCredentials = sqliteTable("driver_credentials", {
 export type DriverCredential = typeof driverCredentials.$inferSelect;
 export type InsertDriverCredential = typeof driverCredentials.$inferInsert;
 
+// ─── CREDENCIAIS LOCAIS (email/senha) ────────────────────
+export const userCredentials = sqliteTable("user_credentials", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  email: text("email").notNull().unique(),
+  passwordHash: text("passwordHash").notNull(),
+  name: text("name"),
+  role: text("role").$type<"user" | "admin">().default("user").notNull(),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()).$onUpdateFn(() => new Date()),
+});
+
+export type UserCredential = typeof userCredentials.$inferSelect;
+
 // ─── OCORRÊNCIAS DE ENTREGA ───────────────────────────────
 export const deliveryOccurrences = sqliteTable("delivery_occurrences", {
   id: integer("id").primaryKey({ autoIncrement: true }),

@@ -19,8 +19,8 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
+import { LoginPage } from "./LoginPage";
 import {
   LayoutDashboard, Building2, Package, Truck, Warehouse, Calculator,
   Users, MapPin, DollarSign, FileText, BarChart3,
@@ -91,15 +91,7 @@ export default function DashboardLayout({
           <p className="text-sm text-muted-foreground text-center">
             SISTEMA DE GESTÃO LOGÍSTICA
           </p>
-          <Button
-            onClick={() => {
-              window.location.href = getLoginUrl();
-            }}
-            size="lg"
-            className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-bold tracking-widest text-lg"
-          >
-            ENTRAR
-          </Button>
+          <LoginPage />
         </div>
       </div>
     );

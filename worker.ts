@@ -5,7 +5,6 @@ import { appRouter } from "./server/routers";
 import { createContext } from "./server/_core/context";
 import { initDb } from "./server/db";
 import { initEnv } from "./server/_core/env";
-import { sdk } from "./server/_core/sdk";
 import { buildSessionCookieString } from "./server/_core/cookies";
 import * as db from "./server/db";
 import { storagePut } from "./server/storage";
@@ -13,6 +12,7 @@ import { nanoid } from "nanoid";
 import { getDb } from "./server/db";
 import { orders } from "./drizzle/schema";
 import { eq } from "drizzle-orm";
+import { SignJWT } from "jose";
 import Stripe from "stripe";
 
 export interface Env {
@@ -36,7 +36,15 @@ export default {
 
     const url = new URL(request.url);
 
-    // ── OAuth callback ──────────────────────────────────────
+    // ── Local auth ──────────────────────────────────────────
+    if (url.pathname === "/api/auth/login" && request.method === "POST") {
+      return handleLogin(request, env);
+    }
+    if (url.pathname === "/api/auth/seed" && request.method === "POST") {
+      return handleSeedAdmin(request, env);
+    }
+
+    // ── OAuth callback (legacy, kept for compatibility) ────
     if (url.pathname === "/api/oauth/callback") {
       return handleOAuthCallback(request, url, env);
     }
@@ -197,6 +205,97 @@ async function handleStripeWebhook(request: Request, env: Env): Promise<Response
     return jsonResponse({ received: true });
   } catch (err: any) {
     return jsonResponse({ error: err.message }, 400);
+  }
+}
+
+// ── PBKDF2 password utilities ────────────────────────────
+async function hashPassword(password: string): Promise<string> {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", salt, iterations: 100000, hash: "SHA-256" }, key, 256);
+  const toHex = (buf: ArrayBuffer) => Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+  return `pbkdf2:${toHex(salt.buffer)}:${toHex(bits)}`;
+}
+
+async function verifyPassword(password: string, stored: string): Promise<boolean> {
+  const parts = stored.split(":");
+  if (parts.length !== 3 || parts[0] !== "pbkdf2") return false;
+  const saltHex = parts[1];
+  const expectedHex = parts[2];
+  const salt = new Uint8Array((saltHex.match(/.{2}/g) ?? []).map(b => parseInt(b, 16)));
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", salt, iterations: 100000, hash: "SHA-256" }, key, 256);
+  const newHex = Array.from(new Uint8Array(bits)).map(b => b.toString(16).padStart(2, "0")).join("");
+  return newHex === expectedHex;
+}
+
+async function createLocalSessionToken(openId: string, name: string, jwtSecret: string): Promise<string> {
+  const secretKey = new TextEncoder().encode(jwtSecret);
+  return new SignJWT({ openId, appId: "trfarias", name })
+    .setProtectedHeader({ alg: "HS256", typ: "JWT" })
+    .setExpirationTime(Math.floor((Date.now() + ONE_YEAR_MS) / 1000))
+    .sign(secretKey);
+}
+
+// ── Login handler ─────────────────────────────────────────
+async function handleLogin(request: Request, env: Env): Promise<Response> {
+  try {
+    const body = await request.json() as { email?: string; password?: string };
+    const email = (body.email ?? "").trim().toLowerCase();
+    const password = body.password ?? "";
+
+    if (!email || !password) {
+      return jsonResponse({ error: "E-mail e senha são obrigatórios" }, 400);
+    }
+
+    const cred = await db.getUserCredentialsByEmail(email);
+    if (!cred) return jsonResponse({ error: "Credenciais inválidas" }, 401);
+
+    const valid = await verifyPassword(password, cred.passwordHash);
+    if (!valid) return jsonResponse({ error: "Credenciais inválidas" }, 401);
+
+    const openId = `local:${email}`;
+    await db.upsertUser({
+      openId,
+      email,
+      name: cred.name ?? email,
+      loginMethod: "local",
+      lastSignedIn: new Date(),
+      role: cred.role as "user" | "admin",
+    });
+
+    const jwtSecret = env.JWT_SECRET || "";
+    if (!jwtSecret) return jsonResponse({ error: "JWT_SECRET não configurado" }, 500);
+
+    const sessionToken = await createLocalSessionToken(openId, cred.name ?? email, jwtSecret);
+    const cookieStr = buildSessionCookieString(COOKIE_NAME, sessionToken, request, Math.floor(ONE_YEAR_MS / 1000));
+
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json", "Set-Cookie": cookieStr },
+    });
+  } catch (err: any) {
+    console.error("[Login]", err);
+    return jsonResponse({ error: "Erro interno" }, 500);
+  }
+}
+
+// ── Seed admin handler ────────────────────────────────────
+async function handleSeedAdmin(request: Request, env: Env): Promise<Response> {
+  try {
+    const body = await request.json() as { secret?: string; email?: string; password?: string; name?: string };
+    if (body.secret !== (env.JWT_SECRET || "")) {
+      return jsonResponse({ error: "Não autorizado" }, 403);
+    }
+    const email = (body.email ?? "admin@trfarias.com").toLowerCase();
+    const password = body.password ?? "Admin@2026";
+    const name = body.name ?? "Administrador";
+    const hash = await hashPassword(password);
+    await db.upsertLocalUser(email, hash, name, "admin");
+    return jsonResponse({ ok: true, email });
+  } catch (err: any) {
+    console.error("[Seed]", err);
+    return jsonResponse({ error: err.message }, 500);
   }
 }
 

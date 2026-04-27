@@ -11,6 +11,7 @@ binding = "ASSETS"
 binding = "DB"
 database_name = "tr-farias-express-db"
 database_id = "18478b19-26f6-4c3a-8c76-d8b8ad57aa7f"
+migrations_dir = "drizzle"
 
 # Secrets (set via: wrangler secret put <KEY>):
 # JWT_SECRET
